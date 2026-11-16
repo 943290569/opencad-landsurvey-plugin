@@ -1,0 +1,45 @@
+name: Land Survey Windows compatibility 2026.46
+on:
+  push:
+    branches:
+      - fix/land-survey-ocs-2026-46
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: "1.99.1"
+      - name: Resolve updated host and codec pins
+        shell: pwsh
+        run: |
+          cargo generate-lockfile
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Build Land Survey DLL
+        shell: pwsh
+        run: |
+          cargo build --release -p opencad-landsurvey-plugin
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Run tests
+        shell: pwsh
+        run: |
+          cargo test --workspace
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Stage experimental plugin
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force dist/opencad.landsurvey | Out-Null
+          Copy-Item target/release/opencad_landsurvey_plugin.dll dist/opencad.landsurvey/
+          Copy-Item plugin.toml dist/opencad.landsurvey/plugin.toml
+          Get-ChildItem dist/opencad.landsurvey
+      - uses: actions/upload-artifact@v4
+        with:
+          name: land-survey-windows-ocs-2026-46-experimental
+          path: dist/opencad.landsurvey/
+          if-no-files-found: error
